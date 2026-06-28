@@ -3,6 +3,7 @@ let socket;
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d', { willReadFrequently: true });
 const statusText = document.getElementById('status');
+const timerEl = document.getElementById('timer');
 const leaderboardDiv = document.getElementById('leaderboard'); 
 const chatHistory = document.getElementById('chat-history');
 const guessInput = document.getElementById('guessInput');
@@ -33,6 +34,13 @@ document.getElementById('joinBtn').addEventListener('click', () => {
 
     socket = io({ query: { name: name } });
     setupSocketListeners();
+});
+
+// Fix Mobile Keyboard Issue - Scrolldown when typing
+guessInput.addEventListener('focus', () => {
+    setTimeout(() => {
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    }, 300);
 });
 
 // --- Toolbar Logic ---
@@ -95,6 +103,9 @@ function addMessage(data) {
     if (data.type === 'system') {
         div.className = 'msg msg-system';
         div.innerText = data.message;
+    } else if (data.type === 'success') {
+        div.className = 'msg msg-success';
+        div.innerText = data.message;
     } else {
         div.className = 'msg msg-user';
         div.innerHTML = `<div class="sender-name" style="color: ${data.color};">${data.sender}</div><div>${data.message}</div>`;
@@ -154,7 +165,8 @@ function setupSocketListeners() {
             toolbar.style.display = 'flex'; 
             setTool('pen'); 
         } else {
-            statusText.innerText = `👀 ${data.drawerName} is drawing!`; 
+            // Show the masked word to guessers
+            statusText.innerText = `👀 ${data.drawerName} is drawing! Word: ${data.wordMask}`; 
             guessInput.placeholder = "Type your guess...";
             toolbar.style.display = 'none'; 
         }
@@ -162,6 +174,15 @@ function setupSocketListeners() {
 
     socket.on('word', (word) => {
         if (isDrawer) statusText.innerText = `✏️ Draw this: ${word.toUpperCase()}`;
+    });
+
+    socket.on('timer', (time) => {
+        timerEl.innerText = `⏱️ ${time}s`;
+        if (time <= 10) {
+            timerEl.style.color = '#FF3B30';
+        } else {
+            timerEl.style.color = 'var(--text)';
+        }
     });
 
     socket.on('draw', (data) => {
