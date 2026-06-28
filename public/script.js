@@ -1,4 +1,3 @@
-// public/script.js
 let socket; 
 
 const canvas = document.getElementById('canvas');
@@ -16,6 +15,10 @@ let current = { x: 0, y: 0 };
 
 let currentLineWidth = 6;
 let strokeColor = '#333333';
+
+let history = [];
+let redoList = [];
+let currentPath = [];
 
 ctx.lineCap = 'round';
 ctx.lineJoin = 'round';
@@ -35,6 +38,9 @@ document.getElementById('joinBtn').addEventListener('click', () => {
 // --- Toolbar Logic ---
 document.getElementById('penBtn').addEventListener('click', () => setTool('pen'));
 document.getElementById('eraserBtn').addEventListener('click', () => setTool('eraser'));
+document.getElementById('undoBtn').addEventListener('click', handleUndo);
+document.getElementById('redoBtn').addEventListener('click', handleRedo);
+document.getElementById('clearBtn').addEventListener('click', handleClear);
 
 function setTool(tool) {
     document.getElementById('penBtn').classList.remove('active');
@@ -51,6 +57,38 @@ function setTool(tool) {
     }
 }
 
+function handleUndo() {
+    if (!isDrawer || history.length === 0) return;
+    redoList.push(history.pop());
+    redrawHistory();
+}
+
+function handleRedo() {
+    if (!isDrawer || redoList.length === 0) return;
+    history.push(redoList.pop());
+    redrawHistory();
+}
+
+function handleClear() {
+    if (!isDrawer) return;
+    history = [];
+    redoList = [];
+    redrawHistory();
+}
+
+function redrawHistory() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    socket.emit('clearCanvas'); 
+    
+    history.forEach(path => {
+        path.forEach(seg => {
+            drawLineLocally(seg.x0, seg.y0, seg.x1, seg.y1, seg.color, seg.width);
+        });
+    });
+    
+    socket.emit('syncHistory', history);
+}
+
 // --- Chat UI Helpers ---
 function addMessage(data) {
     const div = document.createElement('div');
@@ -59,7 +97,6 @@ function addMessage(data) {
         div.innerText = data.message;
     } else {
         div.className = 'msg msg-user';
-        // NEW: Apply the custom color directly to the sender's name!
         div.innerHTML = `<div class="sender-name" style="color: ${data.color};">${data.sender}</div><div>${data.message}</div>`;
     }
     chatHistory.appendChild(div);
@@ -93,7 +130,6 @@ function setupSocketListeners() {
             const el = document.createElement('div');
             el.className = 'player-score';
             
-            // Format the name with their assigned color
             const coloredName = `<span style="color: ${player.color};">${player.name}</span>`;
 
             if (index === 0 && player.score > 0) {
@@ -109,7 +145,6 @@ function setupSocketListeners() {
     socket.on('role', (data) => {
         isDrawer = (data.role === 'drawer'); 
         
-        // Ensure inputs are always enabled so everyone can chat
         guessInput.disabled = false;
         sendBtn.disabled = false;
 
@@ -135,6 +170,17 @@ function setupSocketListeners() {
 
     socket.on('clearCanvas', () => {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+        history = [];
+        redoList = [];
+    });
+
+    socket.on('syncHistory', (syncedHistory) => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        syncedHistory.forEach(path => {
+            path.forEach(seg => {
+                drawLineLocally(seg.x0, seg.y0, seg.x1, seg.y1, seg.color, seg.width);
+            });
+        });
     });
 
     socket.on('chat', (data) => {
@@ -175,12 +221,17 @@ function startDrawing(e) {
     const pos = getCoordinates(e);
     current.x = pos.x;
     current.y = pos.y;
+    currentPath = []; 
 }
 
 function stopDrawing(e) {
     if (!drawing) return;
     e.preventDefault();
     drawing = false;
+    if (currentPath.length > 0) {
+        history.push(currentPath);
+        redoList = []; 
+    }
 }
 
 function draw(e) {
@@ -188,13 +239,15 @@ function draw(e) {
     e.preventDefault();
     
     const pos = getCoordinates(e);
-    
-    drawLineLocally(current.x, current.y, pos.x, pos.y, strokeColor, currentLineWidth);
-    socket.emit('draw', { 
+    const segment = {
         x0: current.x, y0: current.y, 
         x1: pos.x, y1: pos.y, 
         color: strokeColor, width: currentLineWidth 
-    });
+    };
+    
+    drawLineLocally(segment.x0, segment.y0, segment.x1, segment.y1, segment.color, segment.width);
+    socket.emit('draw', segment);
+    currentPath.push(segment); 
     
     current.x = pos.x;
     current.y = pos.y;
