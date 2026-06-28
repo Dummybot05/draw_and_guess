@@ -1,4 +1,3 @@
-// server.js
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -130,11 +129,9 @@ io.on('connection', (socket) => {
         return;
     }
 
-    // NEW: Assign a unique color to the player
     const assignedColor = chatColors[colorTracker % chatColors.length];
     colorTracker++;
 
-    // NEW: Save the color in the player's data
     players.push({ id: socket.id, name: playerName, score: 0, color: assignedColor });
     console.log(`[+] ${playerName} connected | Total: ${players.length}/3`);
 
@@ -153,6 +150,18 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('clearCanvas', () => {
+        if (socket.id === currentDrawerId) {
+            socket.broadcast.emit('clearCanvas');
+        }
+    });
+
+    socket.on('syncHistory', (history) => {
+        if (socket.id === currentDrawerId) {
+            socket.broadcast.emit('syncHistory', history);
+        }
+    });
+
     socket.on('guess', (rawMsg) => {
         const msg = sanitizeInput(rawMsg);
         if (!msg) return;
@@ -160,14 +169,13 @@ io.on('connection', (socket) => {
         const sender = players.find(p => p.id === socket.id);
         const drawer = players.find(p => p.id === currentDrawerId);
         const senderName = sender ? sender.name : 'Unknown';
-        const senderColor = sender ? sender.color : '#333333'; // NEW: Grab their color
+        const senderColor = sender ? sender.color : '#333333';
 
         if (socket.id === currentDrawerId) {
             if (msg.toLowerCase().includes(wordToGuess)) {
                 socket.emit('chat', { type: 'system', message: '❌ You cannot give away the word!' });
                 return;
             }
-            // NEW: Pass the color to the frontend
             io.emit('chat', { type: 'user', sender: senderName, message: msg, color: senderColor });
             return;
         }
@@ -187,7 +195,6 @@ io.on('connection', (socket) => {
             io.emit('clearCanvas');
             updateRolesAndWord();
         } else {
-            // NEW: Pass the color to the frontend
             io.emit('chat', { type: 'user', sender: senderName, message: msg, color: senderColor });
         }
     });
