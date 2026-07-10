@@ -15,7 +15,7 @@ let drawing = false;
 let current = { x: 0, y: 0 };
 
 let currentLineWidth = 6;
-let strokeColor = '#333333';
+let strokeColor = '#0F172A'; // Updated to match new UI dark slate
 
 let history = [];
 let redoList = [];
@@ -36,11 +36,11 @@ document.getElementById('joinBtn').addEventListener('click', () => {
     setupSocketListeners();
 });
 
-// Fix Mobile Keyboard Issue - Scrolldown when typing
+// REMOVED window.scrollTo on focus to keep canvas visible on mobile
 guessInput.addEventListener('focus', () => {
     setTimeout(() => {
-        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-    }, 300);
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+    }, 100);
 });
 
 // --- Toolbar Logic ---
@@ -55,7 +55,7 @@ function setTool(tool) {
     document.getElementById('eraserBtn').classList.remove('active');
 
     if (tool === 'pen') {
-        strokeColor = '#333333';
+        strokeColor = '#0F172A';
         currentLineWidth = 6;
         document.getElementById('penBtn').classList.add('active');
     } else if (tool === 'eraser') {
@@ -125,7 +125,7 @@ function handleSend() {
 // --- Socket Listeners ---
 function setupSocketListeners() {
     socket.on('error', (msg) => {
-        statusText.innerText = "Error";
+        statusText.innerText = "Error Connecting";
         addMessage({ type: 'system', message: msg });
         setTimeout(() => {
             document.getElementById('login-screen').style.display = 'flex';
@@ -160,28 +160,27 @@ function setupSocketListeners() {
         sendBtn.disabled = false;
 
         if (isDrawer) {
-            statusText.innerText = "✏️ You are drawing!";
+            statusText.innerHTML = `<strong>You are drawing!</strong>`;
             guessInput.placeholder = "Chat (Don't type the word!)";
             toolbar.style.display = 'flex'; 
             setTool('pen'); 
         } else {
-            // Show the masked word to guessers
-            statusText.innerText = `👀 ${data.drawerName} is drawing! Word: ${data.wordMask}`; 
+            statusText.innerHTML = `<strong>${data.drawerName}</strong> is drawing! <span style="letter-spacing: 2px;">${data.wordMask}</span>`; 
             guessInput.placeholder = "Type your guess...";
             toolbar.style.display = 'none'; 
         }
     });
 
     socket.on('word', (word) => {
-        if (isDrawer) statusText.innerText = `✏️ Draw this: ${word.toUpperCase()}`;
+        if (isDrawer) statusText.innerHTML = `Draw: <strong>${word.toUpperCase()}</strong>`;
     });
 
     socket.on('timer', (time) => {
-        timerEl.innerText = `⏱️ ${time}s`;
+        timerEl.innerText = `${time}s`;
         if (time <= 10) {
-            timerEl.style.color = '#FF3B30';
+            timerEl.style.color = '#EF4444';
         } else {
-            timerEl.style.color = 'var(--text)';
+            timerEl.style.color = 'var(--text-main)';
         }
     });
 
@@ -284,13 +283,11 @@ function drawLineLocally(x0, y0, x1, y1, color, width) {
     ctx.closePath();
 }
 
-// Mouse Events
 canvas.addEventListener('mousedown', startDrawing);
 canvas.addEventListener('mouseup', stopDrawing);
 canvas.addEventListener('mouseout', stopDrawing);
 canvas.addEventListener('mousemove', draw);
 
-// Touch Events
 canvas.addEventListener('touchstart', startDrawing, { passive: false });
 canvas.addEventListener('touchend', stopDrawing, { passive: false });
 canvas.addEventListener('touchcancel', stopDrawing, { passive: false });
