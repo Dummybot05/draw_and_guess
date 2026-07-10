@@ -10,12 +10,18 @@ const guessInput = document.getElementById('guessInput');
 const sendBtn = document.getElementById('sendBtn');
 const toolbar = document.getElementById('toolbar');
 
+// NEW: Color elements
+const colorPicker = document.getElementById('color-picker');
+const colorBtns = document.querySelectorAll('.color-btn');
+const customColorInput = document.getElementById('customColor');
+
 let isDrawer = false;
 let drawing = false;
 let current = { x: 0, y: 0 };
 
 let currentLineWidth = 6;
-let strokeColor = '#0F172A'; // Updated to match new UI dark slate
+let currentPenColor = '#0F172A'; // Stores the user's selected color
+let strokeColor = currentPenColor; // The active drawing color
 
 let history = [];
 let redoList = [];
@@ -36,14 +42,13 @@ document.getElementById('joinBtn').addEventListener('click', () => {
     setupSocketListeners();
 });
 
-// REMOVED window.scrollTo on focus to keep canvas visible on mobile
 guessInput.addEventListener('focus', () => {
     setTimeout(() => {
         chatHistory.scrollTop = chatHistory.scrollHeight;
     }, 100);
 });
 
-// --- Toolbar Logic ---
+// --- Toolbar & Color Logic ---
 document.getElementById('penBtn').addEventListener('click', () => setTool('pen'));
 document.getElementById('eraserBtn').addEventListener('click', () => setTool('eraser'));
 document.getElementById('undoBtn').addEventListener('click', handleUndo);
@@ -55,15 +60,50 @@ function setTool(tool) {
     document.getElementById('eraserBtn').classList.remove('active');
 
     if (tool === 'pen') {
-        strokeColor = '#0F172A';
+        strokeColor = currentPenColor; // Restore chosen color
         currentLineWidth = 6;
         document.getElementById('penBtn').classList.add('active');
+        
+        // Re-enable color picker visually
+        colorPicker.style.opacity = '1';
+        colorPicker.style.pointerEvents = 'auto';
     } else if (tool === 'eraser') {
         strokeColor = '#FFFFFF'; 
         currentLineWidth = 25;   
         document.getElementById('eraserBtn').classList.add('active');
+        
+        // Dim color picker to show it's inactive while erasing
+        colorPicker.style.opacity = '0.4';
+        colorPicker.style.pointerEvents = 'none';
     }
 }
+
+// Handle Preset Color Clicks
+colorBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        // Remove active class from all
+        colorBtns.forEach(b => b.classList.remove('active'));
+        // Add to clicked
+        e.target.classList.add('active');
+        
+        currentPenColor = e.target.dataset.color;
+        
+        // Only update active stroke if pen is currently selected
+        if (document.getElementById('penBtn').classList.contains('active')) {
+            strokeColor = currentPenColor;
+        }
+    });
+});
+
+// Handle Custom Color Input
+customColorInput.addEventListener('input', (e) => {
+    colorBtns.forEach(b => b.classList.remove('active')); // Deselect presets
+    currentPenColor = e.target.value;
+    
+    if (document.getElementById('penBtn').classList.contains('active')) {
+        strokeColor = currentPenColor;
+    }
+});
 
 function handleUndo() {
     if (!isDrawer || history.length === 0) return;
@@ -163,11 +203,13 @@ function setupSocketListeners() {
             statusText.innerHTML = `<strong>You are drawing!</strong>`;
             guessInput.placeholder = "Chat (Don't type the word!)";
             toolbar.style.display = 'flex'; 
+            colorPicker.style.display = 'flex'; // Show colors for drawer
             setTool('pen'); 
         } else {
             statusText.innerHTML = `<strong>${data.drawerName}</strong> is drawing! <span style="letter-spacing: 2px;">${data.wordMask}</span>`; 
             guessInput.placeholder = "Type your guess...";
             toolbar.style.display = 'none'; 
+            colorPicker.style.display = 'none'; // Hide colors for guessers
         }
     });
 
