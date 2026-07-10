@@ -30,15 +30,38 @@ let currentPath = [];
 ctx.lineCap = 'round';
 ctx.lineJoin = 'round';
 
-// --- Login Logic ---
+// --- Session & Auto-Login Logic ---
+// Generate a unique ID for this browser tab if they don't have one
+let currentUserId = sessionStorage.getItem('dg_userId');
+if (!currentUserId) {
+    currentUserId = 'user_' + Math.random().toString(36).substring(2, 15);
+    sessionStorage.setItem('dg_userId', currentUserId);
+}
+
+// Check if they already logged in before refreshing
+const savedUsername = sessionStorage.getItem('dg_username');
+if (savedUsername) {
+    // Automatically skip the login screen
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app-container').style.display = 'flex';
+    
+    // Connect to socket with the saved name and ID
+    socket = io({ query: { name: savedUsername, userId: currentUserId } });
+    setupSocketListeners();
+}
+
+// Standard Login Button Click
 document.getElementById('joinBtn').addEventListener('click', () => {
     const name = document.getElementById('usernameInput').value.trim();
     if (!name) return alert("Please enter a name to play!");
 
+    // Save the name for future refreshes
+    sessionStorage.setItem('dg_username', name);
+
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app-container').style.display = 'flex';
 
-    socket = io({ query: { name: name } });
+    socket = io({ query: { name: name, userId: currentUserId } });
     setupSocketListeners();
 });
 

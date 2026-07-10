@@ -21,6 +21,9 @@ let currentDrawerId = null;
 let timeLeft = 180;
 let roundTimer = null;
 
+// NEW: Persistent score tracker
+const userScoreHistory = {};
+
 const words = [
   "dog", "cat", "mouse", "bird", "fish", "elephant", "lion", "tiger", "sloth", "monkey",
   "snake", "frog", "turtle", "spider", "horse", "cow", "pig", "sheep", "goat", "chicken",
@@ -141,6 +144,7 @@ let colorTracker = 0;
 
 io.on('connection', (socket) => {
     const rawName = socket.handshake.query.name;
+    const userId = socket.handshake.query.userId || socket.id; // NEW: Grab the permanent user ID
     const playerName = sanitizeInput(rawName) || `Player ${socket.id.substring(0,4)}`;
 
     if (players.length >= 3) {
@@ -152,8 +156,14 @@ io.on('connection', (socket) => {
     const assignedColor = chatColors[colorTracker % chatColors.length];
     colorTracker++;
 
-    players.push({ id: socket.id, name: playerName, score: 0, color: assignedColor });
+    // NEW: Check if this user has a saved score, otherwise start at 0
+    const startingScore = userScoreHistory[userId] || 0;
+
+    // NEW: Save the userId in the player object
+    players.push({ id: socket.id, userId: userId, name: playerName, score: startingScore, color: assignedColor });
     console.log(`[+] ${playerName} connected | Total: ${players.length}/3`);
+
+    // ... (keep the rest of the connection logic exactly the same)
 
     io.emit('chat', { type: 'system', message: `👋 ${playerName} joined the game!` });
     io.emit('updateScores', players);
@@ -200,13 +210,20 @@ io.on('connection', (socket) => {
         }
 
         if (msg.toLowerCase() === wordToGuess.toLowerCase()) {
-            // CHANGE: Dynamic scoring based on speed
-            const timeBonus = Math.floor((timeLeft / 180) * 15); // Up to 15 bonus points
+            const timeBonus = Math.floor((timeLeft / 180) * 15); 
             const guesserPoints = 10 + timeBonus;
             const drawerPoints = 5 + Math.floor(timeBonus / 2);
 
-            if (sender) sender.score += guesserPoints;
-            if (drawer) drawer.score += drawerPoints;
+            if (sender) {
+                sender.score += guesserPoints;
+                userScoreHistory[sender.userId] = sender.score; // NEW: Save to history
+            }
+            if (drawer) {
+                drawer.score += drawerPoints;
+                userScoreHistory[drawer.userId] = drawer.score; // NEW: Save to history
+            }
+
+            // ... (keep the rest the same)
 
             io.emit('chat', { 
                 type: 'success', 
