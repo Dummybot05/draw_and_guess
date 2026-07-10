@@ -18,7 +18,7 @@ app.use(express.static('public'));
 // Game State
 let players = []; 
 let currentDrawerId = null;
-let timeLeft = 60;
+let timeLeft = 180;
 let roundTimer = null;
 
 const words = [
@@ -50,7 +50,7 @@ function startNextTurn() {
 // Begins the 60 second timer and notifies clients
 function startRound() {
     clearInterval(roundTimer);
-    timeLeft = 60;
+    timeLeft = 180;
     
     io.emit('clearCanvas');
     updateRolesAndWord();
