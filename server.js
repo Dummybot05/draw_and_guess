@@ -122,7 +122,7 @@ function updateRolesAndWord() {
     const drawer = players.find(p => p.id === currentDrawerId);
     const drawerName = drawer ? drawer.name : 'Someone';
     // CHANGE: Added exact letter count indicator
-    const wordMask = wordToGuess.split('').map(() => '_').join(' ') + ` (${wordToGuess.length} letters)`;
+    const wordMask = wordToGuess.split('').map(() => '_').join(' ') + ` (${wordToGuess.length})`;
 
     io.sockets.sockets.forEach((s, id) => {
         s.emit('role', {
